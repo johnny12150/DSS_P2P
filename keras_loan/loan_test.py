@@ -26,6 +26,8 @@ Y = LoanDF['Risk_Score']
 
 
 # todo: deep learning要將dataframe轉成ndarray
+X = X.values
+Y = Y.values
 
 # todo: 之後還要標準化
 
@@ -33,7 +35,7 @@ def baseline_model():
     # create model
     model = Sequential()
     # input layer
-    model.add(Dense(2, input_dim=2, kernel_initializer='normal', activation='relu'))
+    model.add(Dense(10, input_dim=2, kernel_initializer='normal', activation='relu'))
     # output layer
     model.add(Dense(1, kernel_initializer='normal'))
     # Compile model
@@ -41,13 +43,13 @@ def baseline_model():
     return model
 
 
-# The Keras wrapper object for use in scikit-learn as a regression estimator is called KerasRegressor.
 # fix random seed for reproducibility
 seed = 7
 numpy.random.seed(seed)
 # evaluate model with standardized dataset
 # estimator = KerasRegressor(build_fn=baseline_model, epochs=100, batch_size=5, verbose=0)
-estimator = KerasRegressor(build_fn=baseline_model, epochs=10, batch_size=500, verbose=2)
+# The Keras wrapper object for use in scikit-learn as a regression estimator is called KerasRegressor.
+estimator = KerasRegressor(build_fn=baseline_model, epochs=10, batch_size=5000, verbose=2)
 
 kfold = KFold(n_splits=10, random_state=seed)
 results = cross_val_score(estimator, X, Y, cv=kfold)
