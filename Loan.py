@@ -12,52 +12,59 @@ YDF = LoanDF['Risk_Score']
 LoanDF['Debt-To-Income Ratio'] = LoanDF['Debt-To-Income Ratio'].str.strip('%').astype('float32')
 # 將數字轉化為百分比型式
 LoanDF['Debt-To-Income Ratio'] = LoanDF['Debt-To-Income Ratio'] / 100
-# print(LoanDF.head(1))
+LoanDF = LoanDF.drop(['Employment Length', 'Risk_Score'], axis=1)
+print(LoanDF.info())
 
-# todo: 處理其他特徵值
+# 處理其他特徵值, R2來到0.092
 # https://www.kaggle.com/shikhar96/titanic-prediction-using-scikit-learn-tutorial
+from sklearn import preprocessing
+
+
+def encode_features(df):
+    features = ['Application Date', 'Loan Title', 'State']
+    for feature in features:
+        le = preprocessing.LabelEncoder()
+        le = le.fit(df[feature])
+        df[feature] = le.transform(df[feature])
+    return df
+
 
 # todo: improve regression model
 # https://stackoverflow.com/questions/47577168/how-can-i-increase-the-accuracy-of-my-linear-regression-modelmachine-learning
-
-# trainX = pandas.DataFrame()
-# trainX['Amount Requested'] = LoanDF['Amount Requested']
-# trainX['Debt-To-Income Ratio'] = LoanDF['Debt-To-Income Ratio']
-# same as
+X_LoanDF = encode_features(LoanDF)
 X = LoanDF[['Amount Requested', 'Debt-To-Income Ratio']]
+
 # 轉成np array, 可以加速
 X = X.values
-
-# print(X.info())
-# print(X.head(5))
 
 # 做curve fitting
 from sklearn.preprocessing import PolynomialFeatures
 
 poly2 = PolynomialFeatures(degree=3)
-X_poly2 = poly2.fit_transform(X)
+X_poly2 = poly2.fit_transform(X_LoanDF)
 # 將資料分成訓練組及測試組
 X_train, X_test, y_train, y_test = train_test_split(X_poly2, YDF, test_size=0.4, random_state=101)
 
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 
-# def train_and_evaluate(clf, X_train, y_train):
-#     # 做cross validation
-#     clf.fit(X_train, y_train)
-#
-#     print("Coefficient of determination on training set:", clf.score(X_train, y_train))
-#
-#     # create a k-fold cross validation iterator of k=5 folds
-#     cv = KFold(n_splits=10, random_state=33)
-#     scores = cross_val_score(clf, X_train, y_train, cv=cv)
-#     print("Average coefficient of determination using 10-fold cross-validation:", numpy.mean(scores))
+
+def train_and_evaluate(clf, X_train, y_train):
+    # 做cross validation
+    clf.fit(X_train, y_train)
+
+    print("Coefficient of determination on training set:", clf.score(X_train, y_train))
+
+    # create a k-fold cross validation iterator of k=5 folds
+    cv = KFold(n_splits=10, random_state=33)
+    scores = cross_val_score(clf, X_train, y_train, cv=cv)
+    print("Average coefficient of determination using 10-fold cross-validation:", numpy.mean(scores))
 
 
 # todo: 或許可以改random forest試試
 lm = LinearRegression()
-lm.fit(X_train, y_train)
-# train_and_evaluate(lm, X_train, y_train)
+# lm.fit(X_train, y_train)
+train_and_evaluate(lm, X_train, y_train)
 
 # 印出係數
 # print(lm.coef_)
@@ -67,7 +74,7 @@ lm.fit(X_train, y_train)
 
 print('Score of the multi linear regression:')
 print(lm.score(X_test, y_test))
-print(f_regression(X_test, y_test)[1])
+# print(f_regression(X_test, y_test)[1])
 
 # print(f_regression(trainX[:10000], YDF[:10000])[1][:1])
 
