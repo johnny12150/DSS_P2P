@@ -1,17 +1,13 @@
+from sklearn.linear_model import LogisticRegression
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 from sklearn.preprocessing import StandardScaler
-import numpy
+import numpy as np
 import pandas
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 from sklearn.externals import joblib
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.models import load_model
-from keras.layers import Dense, Dropout
-from keras.optimizers import SGD
 
 # the dataset is too larage please download from 'https://www.kaggle.com/wendykan/lending-club-loan-data'
 DF = pandas.read_csv('../loan.csv')
@@ -35,15 +31,13 @@ LoanDF = DF[column_needed].copy()
 Y = LoanDF[['grade']]
 LoanDF = LoanDF.drop('grade', axis=1)
 LoanDF = LoanDF.drop('sub_grade', axis=1)
-LoanDF = LoanDF.drop('int_rate', axis=1)
+# LoanDF = LoanDF.drop('int_rate', axis=1)
 LoanDF = LoanDF.drop('id', axis=1)
 LoanDF = LoanDF.drop('member_id', axis=1)
 LoanDF = LoanDF.drop('funded_amnt', axis=1)
 LoanDF = LoanDF.drop('addr_state', axis=1)
 LoanDF = LoanDF.drop('zip_code', axis=1)
 LoanDF = LoanDF.drop('installment', axis=1)
-print(LoanDF.shape)
-print(Y.shape)
 
 
 def encode_features(df):
@@ -64,7 +58,6 @@ def encode_features(df):
         feature_labels = list(le.classes_)
         one_hot_features = pandas.DataFrame(feature_array, columns=feature_labels)
         df = pandas.concat([df, one_hot_features], axis=1)
-        # df = pandas.concat([df, one_hot_features], axis=1, join='inner', join_axes=[df.id])
         # drop舊的(concat前的, ex: term...)
         df = df.drop(feature, axis=1)
     return df
@@ -74,31 +67,36 @@ def encode_features(df):
 X = encode_features(LoanDF)
 
 
-# LoanDF = LoanDF.drop('id', axis=1)
-
 def Y_encode_features(df):
     # features = ['sub_grade']
     features = ['grade']
     for feature in features:
+        # sklearn僅接受1d array當label所以只做label encode不做one hot
         le = preprocessing.LabelEncoder()
         le = le.fit(df[feature])
         df[feature] = le.transform(df[feature])  # Transform Categories Into Integers
         joblib.dump(le, 'encoder/Yle_%s.pkl' % feature)
-        one_hot = preprocessing.OneHotEncoder()
-        ohe = one_hot.fit(df[[feature]])
-        feature_array = ohe.transform(df[[feature]]).toarray()
-        joblib.dump(ohe, 'encoder/Yohe_%s.pkl' % feature)
-        feature_labels = list(le.classes_)
-        one_hot_features = pandas.DataFrame(feature_array, columns=feature_labels)
-        df = pandas.concat([df, one_hot_features], axis=1)
-        df = df.drop(feature, axis=1)
+        # one_hot = preprocessing.OneHotEncoder()
+        # ohe = one_hot.fit(df[[feature]])
+        # feature_array = ohe.transform(df[[feature]]).toarray()
+        # joblib.dump(ohe, 'encoder/Yohe_%s.pkl' % feature)
+        # feature_labels = list(le.classes_)
+        # one_hot_features = pandas.DataFrame(feature_array, columns=feature_labels)
+        # df = pandas.concat([df, one_hot_features], axis=1)
+        # df = df.drop(feature, axis=1)
     return df
 
 
 Y = Y_encode_features(Y)
 
 X = X.values
+# 避免從df轉nd_array的過程中有產生inf/ nan值
+X = np.nan_to_num(X)
 Y = Y.values
+
+# 檢測是否有inf/ nan值
+print(np.any(np.isnan(X)))  # should be false
+print(np.all(np.isfinite(X)))  # should be true
 
 # 標準化
 minMaxScale = preprocessing.MinMaxScaler(feature_range=(0, 1))
@@ -115,22 +113,14 @@ X = scaler.transform(X)
 # 將資料分成訓練組及測試組
 X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.3, random_state=101)
 
+y_train = y_train.reshape(-1)
+
+print(X_train.shape)
+print(y_train.shape)
+
 # 建立模型
-model = Sequential()
-model.add(Dense(36, input_dim=49, activation='relu'))
-model.add(Dense(30, activation='relu'))
-# model.add(Dense(100, activation='relu'))
-# model.add(Dropout(0.5))
-# model.add(Dense(100, activation='relu'))
-# model.add(Dropout(0.5))
-# model.add(Dense(35, kernel_initializer='normal', activation='softmax'))
-model.add(Dense(7, kernel_initializer='normal', activation='softmax'))
-# sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-# model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
-train_history = model.fit(x=X_train, y=y_train, validation_split=0.1, epochs=10, batch_size=5000, verbose=2)
+clf = LogisticRegression(random_state=0, solver='sag', multi_class='multinomial').fit(X_train, y_train)
 
-model.save('model/MLP_model.h5')
+scores = clf.score(X_test, y_test)
 
-scores = model.evaluate(x=X_test, y=y_test, verbose=0)
-print(scores[1])
+print(scores)
